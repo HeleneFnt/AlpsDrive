@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "node main.js"
+    "dev": "nodemon main.js"
   },
   "repository": {
     "type": "git",
@@ -20,5 +20,11 @@
   "bugs": {
     "url": "https://github.com/HeleneFnt/AlpsDrive/issues"
   },
-  "homepage": "https://github.com/HeleneFnt/AlpsDrive#readme"
+  "homepage": "https://github.com/HeleneFnt/AlpsDrive#readme",
+  "dependencies": {
+    "express": "^4.19.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
 }
