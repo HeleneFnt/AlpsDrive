@@ -29,8 +29,8 @@ function start() {
     });
 
     // Route pour retourner le contenu d'un dossier spécifique ou d'un fichier
-    app.get("/api/drive/:name", async (req, res) => {
-        const name = req.params.name;
+    app.get("/api/drive/:path(*)", async (req, res) => {
+        const name = req.params.path || "";
         const fullPath = path.join(tmpDir, subFolderName, name);
 
         try {
@@ -108,6 +108,40 @@ function start() {
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
         }
     });
+
+
+    // Route pour supprimer un dossier en fonction de son nom
+    app.delete("/api/drive/:name", async (req, res) => {
+        const name = req.params.name;
+        const fullPath = path.join(tmpDir, subFolderName, name);
+
+        // Vérification du nom pour s'assurer qu'il est alphanumérique
+        const regex = /^[a-zA-Z0-9]+$/;
+        if (!regex.test(name)) {
+            console.error('Le nom contient des caractères non-alphanumériques !!!!!!');
+            return res.status(400).json({ error: 'Le nom contient des caractères non-alphanumériques !!!!!!' });
+        }
+
+        try {
+            const fileStats = await fs.stat(fullPath);
+            if (fileStats.isFile()) {
+                await fs.unlink(fullPath);
+            } else {
+                await fs.rmdir(fullPath, { recursive: true });
+            }
+
+            // Récupération de la liste des fichiers mise à jour
+            const updatedResponse = await show(path.join(tmpDir, subFolderName));
+            return res.status(200).json(updatedResponse);
+        } catch (error) {
+            if (error.code === 'ENOENT') {
+                return res.status(404).json({ error: 'Vous ne supprimerez pas !' });
+            }
+            console.error('Erreur lors de la suppression du fichier ou du dossier :', error);
+            res.status(500).json({ error: 'Une erreur s\'est produite lors de la suppression du fichier ou du dossier spécifié.' });
+        }
+    });
+
 
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
