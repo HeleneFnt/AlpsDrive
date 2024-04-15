@@ -24,7 +24,7 @@ function start() {
             return res.status(200).json(response);
         } catch (error) {
             console.error('Erreur lors de la récupération des fichiers à la racine du drive :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des fichiers à la racine du drive.' });
+            res.status(500).json({error: 'Une erreur s\'est produite lors de la récupération des fichiers à la racine du drive.'});
         }
     });
 
@@ -50,23 +50,23 @@ function start() {
         } catch (error) {
             if (error.code === 'ENOENT') {
                 console.error(`Le fichier ou dossier "${name}" n'existe pas.`);
-                return res.status(404).json({ error: 'Autant chercher une aiguille dans une botte de fouin !' });
+                return res.status(404).json({error: 'Autant chercher une aiguille dans une botte de fouin !'});
             }
             console.error('Erreur lors de la récupération des fichiers du dossier :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des fichiers du dossier spécifié.' });
+            res.status(500).json({error: 'Une erreur s\'est produite lors de la récupération des fichiers du dossier spécifié.'});
         }
     });
 
 // Créer un dossier avec un nom respectant les consignes
     app.post("/api/drive/", async (req, res) => {
-        const newDirectoryName = req.query.name; // Envoi du nom du nouveau dossier dans le corps de la requête
+        const newDirectoryName = req.query.name;
         const newPath = path.join(tmpDir, subFolderName, newDirectoryName); // Chemin complet pour le nouveau dossier
 
         // Vérification du nom du dossier pour s'assurer qu'il est alphanumérique
         const regex = /^[a-zA-Z0-9]+$/; // Expression régulière pour vérifier si le nom contient seulement des lettres et des chiffres
         if (!regex.test(newDirectoryName)) {
             console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
-            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+            return res.status(400).json({error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!'});
         }
 
         try {
@@ -78,31 +78,32 @@ function start() {
             return res.status(201).json(updatedResponse);
         } catch (error) {
             console.error('Erreur lors de la création du dossier :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
+            res.status(500).json({error: 'Une erreur s\'est produite lors de la création du dossier.'});
         }
     });
 
+    app.post("/api/drive/:folder", async (req, res) => {
+        const folder = req.params.folder; // Récupère le nom du dossier parent depuis l'URL
+        const newDirectoryName = req.query.name;
 
-    // Créer un dossier avec un nom respectant les consignes dans un dossier déjà crée
-    app.post("/api/drive/", async (req, res) => {
-        const newDirectoryName = req.query.directory.name; // Envoi du nom du nouveau dossier dans le corps de la requête
-        const newPath = path.join(tmpDir, subFolderName, __dirname, newDirectoryName); // Chemin complet pour le nouveau dossier
+        // Chemin complet pour le nouveau dossier
+        const newPath = path.join(tmpDir, subFolderName, folder, newDirectoryName);
 
         // Vérification du nom du dossier pour s'assurer qu'il est alphanumérique
         const regex = /^[a-zA-Z0-9]+$/; // Expression régulière pour vérifier si le nom contient seulement des lettres et des chiffres
         if (!regex.test(newDirectoryName)) {
             console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
-            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+            return res.status(400).json({error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!'});
         }
 
         try {
-            // Création du dossier
             await fs.mkdir(newPath);
-
-            // Récupération de la liste des fichiers mise à jour
             const updatedResponse = await show(path.join(tmpDir, subFolderName));
             return res.status(201).json(updatedResponse);
         } catch (error) {
+            if (error.code === 'ENOENT') {
+                return res.status(404).json({ error: 'Le dossier parent n\'existe pas.' });
+            }
             console.error('Erreur lors de la création du dossier :', error);
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
         }
@@ -112,6 +113,6 @@ function start() {
     app.listen(port, () => {
         console.log(`Server is running on port ${port}`);
     });
-}
 
+}
 module.exports = { start };
