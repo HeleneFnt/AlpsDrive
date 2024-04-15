@@ -41,7 +41,7 @@ function start() {
             const fileStats = await fs.stat(fullPath);
             if (fileStats.isFile()) {
                 const data = await fs.readFile(fullPath, 'utf-8');
-                return res.status(200).json({ content: data });
+                return res.status(200).contentType('application/octet-stream').sendFile(fullPath);
             }
 
             // Si c'est un dossier, retourner son contenu
@@ -82,6 +82,31 @@ function start() {
         }
     });
 
+
+    // Créer un dossier avec un nom respectant les consignes dans un dossier déjà crée
+    app.post("/api/drive/", async (req, res) => {
+        const newDirectoryName = req.query.directory.name; // Envoi du nom du nouveau dossier dans le corps de la requête
+        const newPath = path.join(tmpDir, subFolderName, __dirname, newDirectoryName); // Chemin complet pour le nouveau dossier
+
+        // Vérification du nom du dossier pour s'assurer qu'il est alphanumérique
+        const regex = /^[a-zA-Z0-9]+$/; // Expression régulière pour vérifier si le nom contient seulement des lettres et des chiffres
+        if (!regex.test(newDirectoryName)) {
+            console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
+            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+        }
+
+        try {
+            // Création du dossier
+            await fs.mkdir(newPath);
+
+            // Récupération de la liste des fichiers mise à jour
+            const updatedResponse = await show(path.join(tmpDir, subFolderName));
+            return res.status(201).json(updatedResponse);
+        } catch (error) {
+            console.error('Erreur lors de la création du dossier :', error);
+            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
+        }
+    });
 
     const port = process.env.PORT || 3000;
     app.listen(port, () => {
