@@ -35,7 +35,7 @@ function start() {
 // Route pour afficher les sous-dossiers et fichiers
     app.get("/api/drive/:path(*)", async (req, res) => {
         const name = req.params.path || "";
-        const paths = req.url.replaceAll('/api/drive', '/').split('/');
+        const paths = req.params.path.split('/');
         const fullPath = path.join(tmpDir, subFolderName, ...paths);
 
         console.log('FULL PATH', fullPath)
