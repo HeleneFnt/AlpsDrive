@@ -22,7 +22,7 @@ function start() {
         next();
     });
 
-// Route pour afficher les dossiers et fichiers
+    // Route pour afficher les dossiers et fichiers
     app.get("/api/drive", async (req, res) => {
         try {
             const response = await show(path.join(tmpDir, subFolderName));
@@ -32,7 +32,7 @@ function start() {
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des fichiers à la racine du drive.' });
         }
     });
-// Route pour afficher les sous-dossiers et fichiers
+    // Route pour afficher les sous-dossiers et fichiers
     app.get("/api/drive/:path(*)", async (req, res) => {
         const name = req.params.path || "";
         const paths = req.params.path.split('/');
@@ -106,10 +106,10 @@ function start() {
         }
     });
 
-    // Route pour supprimer un dossier ou un fichier depuis la racine du drive
-    app.delete("/api/drive/:name", async (req, res) => {
-        const name = req.params.name;
-        const fullPath = path.join(tmpDir, subFolderName, name);
+// Route pour supprimer un dossier ou un fichier
+    app.delete("/api/drive/:path(*)", async (req, res) => {
+        const name = req.params.path.split('/').pop(); // Récupère le dernier segment du chemin, qui est le nom du dossier ou du fichier
+        const fullPath = path.join(tmpDir, subFolderName, req.params.path);
 
         if (!hasValidName(name)) {
             console.error('Le nom contient des caractères non-alphanumériques !!!!!!');
@@ -121,7 +121,7 @@ function start() {
 
             if (fileStats.isFile()) {
                 await fs.unlink(fullPath);
-            } else {
+            } else if (fileStats.isDirectory()) {
                 await fs.rmdir(fullPath, { recursive: true });
             }
 
@@ -136,7 +136,8 @@ function start() {
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la suppression du fichier ou du dossier spécifié.' });
         }
     });
-    //  // Route pour charger un fichier à la racine du drive
+
+    // Route pour charger un fichier à la racine du drive
     app.put("/api/drive", async (req, res) => {
         const fileContent = req.files.file;
         console.log('FILE', fileContent);
@@ -162,6 +163,35 @@ function start() {
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
         }
     });
+
+// Route pour charger un fichier dans {folder}
+    app.put("/api/drive/:folder(*)", async (req, res) => {
+        const fileContent = req.files.file;
+        const folderPath = req.params.folder;
+
+        // Vérification du contenu du fichier
+        if (!fileContent) {
+            console.error('Aucun fichier n\'est présent dans la requête !!!!!!');
+            return res.status(400).json({ error: 'Aucun fichier n\'est présent dans la requête !!!!!!' });
+        }
+
+        try {
+            // Chemin complet pour le nouveau fichier
+            const newFilePath = path.join(tmpDir, subFolderName, folderPath, fileContent.filename);
+
+            // Écriture du contenu dans le fichier
+            await fs.writeFile(newFilePath, fileContent.file, 'utf-8');
+
+            // Récupération de la liste des fichiers mise à jour
+            const updatedResponse = await show(path.join(tmpDir, subFolderName));
+            return res.status(201).json(updatedResponse);
+        } catch (error) {
+            console.error('Erreur lors de la création du fichier :', error);
+            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
+        }
+    });
+
+
 
 
 
