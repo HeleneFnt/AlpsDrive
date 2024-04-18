@@ -1,56 +1,59 @@
-const express = require('express');
-const busboy = require('express-busboy');
-const fs = require('fs').promises;
-const path = require('path');
-const tmpDir = require('os').tmpdir();
-const subFolderName = 'testnode';
-const { show, hasValidName} = require('./lib/functions');
+const express = require('express'); // Importation du module Express pour la création d'une application web
+const busboy = require('express-busboy'); // Middleware pour gérer les uploads de fichiers
+const fs = require('fs').promises; // Importation du module fs pour gérer les opérations de fichiers
+const path = require('path'); // Module pour manipuler les chemins de fichiers
+const tmpDir = require('os').tmpdir(); // Dossier temporaire du système d'exploitation
+const subFolderName = 'testnode'; // Nom du sous-dossier choisi pour stocker mes fichiers et dossiers
+const { show, hasValidName} = require('./lib/functions'); // Importation des fonctions show et hasValidName depuis le fichier functions.js
 
-function start() {
-    const app = express();
+function start() { // fonction exportée dans le fichier main.js >> voir fin du code
+    const app = express(); // Initialisation de l'application Express
 
-    // Configuration de express-busboy
+    // Configuration de express-busboy pour gérer les uploads de fichiers >> doc https://www.npmjs.com/package/express-busboy : section  file uploads
     busboy.extend(app, {
         upload: true,
         allowedPath: /./
     });
 
+    // Middleware pour gérer les CORS (Cross-Origin Resource Sharing)
     app.use(function (req, res, next) {
-        res.setHeader("Access-Control-Allow-Origin", "*");
-        res.setHeader("Access-Control-Allow-Methods", "*");
-        res.setHeader("Access-Control-Allow-Headers", "*");
-        next();
+        res.setHeader("Access-Control-Allow-Origin", "*"); // Définit l'entête de la réponse : toutes les origines sont acceptées
+        res.setHeader("Access-Control-Allow-Methods", "*"); // Définit l'entête de la réponse : toutes les méthodes HTTP (GET, POST, PUT, DELETE, etc.) sont authorisées pour les requêtes CORS
+        res.setHeader("Access-Control-Allow-Headers", "*"); // Définit l'entête de la réponse : indique que tous les en-têtes sont autorisés dans les requêtes CORS.Cela permet d'inclure des en-têtes personnalisés dans les requêtes, comme Authorization, Content-Type, etc.
+        next(); // Appelle la fonction next() pour passer au middleware suivant, sinon requête en attente
     });
 
-    // Route pour afficher les dossiers et fichiers
-    app.get("/api/drive", async (req, res) => {
-        try {
-            const response = await show(path.join(tmpDir, subFolderName));
-            return res.status(200).json(response);
-        } catch (error) {
-            console.error('Erreur lors de la récupération des fichiers à la racine du drive :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des fichiers à la racine du drive.' });
-        }
-    });
-    // Route pour afficher les sous-dossiers et fichiers
+    // AVANT IMBRICATION
+    // Route pour afficher les dossiers et fichiers à la racine du drive
+    // app.get("/api/drive", async (req, res) => {
+    //     try {
+    //         const response = await show(path.join(tmpDir, subFolderName));
+    //         return res.status(200).json(response);
+    //     } catch (error) {
+    //         console.error('Erreur lors de la récupération des fichiers à la racine du drive :', error);
+    //         res.status(500).json({ error: 'Une erreur s\'est produite lors de la récupération des fichiers à la racine du drive.' });
+    //     }
+    // });
+
+    // Route pour afficher les fichiers et sous-dossiers à partir d'un chemin spécifié
     app.get("/api/drive/:path(*)", async (req, res) => {
         const name = req.params.path || "";
         const paths = req.params.path.split('/');
         const fullPath = path.join(tmpDir, subFolderName, ...paths);
 
-        console.log('FULL PATH', fullPath)
+        // console.log('FULL PATH', fullPath)
         try {
-            await fs.access(fullPath);
-            const fileStats = await fs.stat(fullPath);
+            await fs.access(fullPath); // Vérifie l'existence du fichier ou dossier
+            const fileStats = await fs.stat(fullPath); // Récupère les informations sur le fichier ou dossier
 
             if (fileStats.isFile()) {
                 return res.status(200).contentType('application/octet-stream').sendFile(fullPath);
             }
 
-            const response = await show(fullPath);
+            const response = await show(fullPath); // Appelle la fonction show pour obtenir la liste des fichiers et sous-dossiers
             return res.status(200).json(response);
         } catch (error) {
-            if (error.code === 'ENOENT') {
+            if (error.code === 'ENOENT') { // Code d'erreur pour "no such file or directory"
                 console.error(`Le fichier ou dossier "${name}" n'existe pas.`);
                 return res.status(404).json({ error: 'Le fichier ou dossier spécifié n\'existe pas.' });
             }
@@ -60,45 +63,78 @@ function start() {
         }
     });
 
-    // Route pour créer un dossier à la racine du drive
-    app.post("/api/drive/", async (req, res) => {
-        const newDirectoryName = req.query.name;
-        const newPath = path.join(tmpDir, subFolderName, newDirectoryName);
+    // AVANT REFACTO ET IMBRICATION
+ // // Route pour créer un dossier à la racine du drive
+ //    app.post("/api/drive/", async (req, res) => {
+ //        const newDirectoryName = req.query.name;
+ //        const newPath = path.join(tmpDir, subFolderName, newDirectoryName);
+ //
+ //        const regex = /^[a-zA-Z0-9]+$/;
+ //
+ //        if (!regex.test(newDirectoryName)) {
+ //            console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
+ //            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+ //        }
+ //
+ //        try {
+ //            await fs.mkdir(newPath);
+ //            const updatedResponse = await show(path.join(tmpDir, subFolderName));
+ //            return res.status(201).json(updatedResponse);
+ //        } catch (error) {
+ //            console.error('Erreur lors de la création du dossier :', error);
+ //            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
+ //        }
+ //    });
+ //
+ //    //Route pour créer un dossier à partir d'un sous-dossier
+ //    app.post("/api/drive/:folder", async (req, res) => {
+ //        const folder = req.params.folder;
+ //        const newDirectoryName = req.query.name;
+ //        const newPath = path.join(tmpDir, subFolderName, folder, newDirectoryName);
+ //
+ //        if (!hasValidName(newDirectoryName)) {
+ //            console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
+ //            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+ //        }
+ //
+ //        try {
+ //            await fs.mkdir(newPath);
+ //            const updatedResponse = await show(path.join(tmpDir, subFolderName));
+ //            return res.status(201).json(updatedResponse);
+ //        } catch (error) {
+ //            if (error.code === 'ENOENT') {
+ //                return res.status(404).json({ error: 'Le dossier parent n\'existe pas.' });
+ //            }
+ //            console.error('Erreur lors de la création du dossier :', error);
+ //            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
+ //        }
+ //    });
 
-        const regex = /^[a-zA-Z0-9]+$/;
+    // Route pour créer un dossier dans le drive
+    app.post("/api/drive/:path(*)", async (req, res) => {
+        let folder = req.params.path || ""; // Dossier parent
+        let newDirectoryName = req.query.name; // Nom du nouveau dossier
+        let newPath;
 
-        if (!regex.test(newDirectoryName)) {
+        // Si un nom de dossier est fourni, vérifiez s'il est valide
+        if (newDirectoryName && !hasValidName(newDirectoryName)) {
             console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
             return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
         }
 
-        try {
-            await fs.mkdir(newPath);
-            const updatedResponse = await show(path.join(tmpDir, subFolderName));
-            return res.status(201).json(updatedResponse);
-        } catch (error) {
-            console.error('Erreur lors de la création du dossier :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du dossier.' });
-        }
-    });
-
-    //Route pour créer un dossier à partir d'un sous-dossier
-    app.post("/api/drive/:folder", async (req, res) => {
-        const folder = req.params.folder;
-        const newDirectoryName = req.query.name;
-        const newPath = path.join(tmpDir, subFolderName, folder, newDirectoryName);
-
-        if (!hasValidName(newDirectoryName)) {
-            console.error('Le nom de dossier contient des caractères non-alphanumériques !!!!!!');
-            return res.status(400).json({ error: 'Le nom de dossier contient des caractères non-alphanumériques !!!!!!' });
+        // Construit le chemin complet en fonction du dossier parent et du nouveau dossier
+        if (folder) {
+            newPath = path.join(tmpDir, subFolderName, folder, newDirectoryName);
+        } else {
+            newPath = path.join(tmpDir, subFolderName, newDirectoryName);
         }
 
         try {
-            await fs.mkdir(newPath);
-            const updatedResponse = await show(path.join(tmpDir, subFolderName));
-            return res.status(201).json(updatedResponse);
+            await fs.mkdir(newPath); // Crée le nouveau dossier
+            const updatedResponse = await show(path.join(tmpDir, subFolderName)); // Met à jour la liste des fichiers et dossiers
+            return res.status(201).json(updatedResponse); // Renvoie la réponse mise à jour avec le statut 201 (Created)
         } catch (error) {
-            if (error.code === 'ENOENT') {
+            if (error.code === 'ENOENT') { // Code d'erreur pour "no such file or directory"
                 return res.status(404).json({ error: 'Le dossier parent n\'existe pas.' });
             }
             console.error('Erreur lors de la création du dossier :', error);
@@ -106,29 +142,31 @@ function start() {
         }
     });
 
-// Route pour supprimer un dossier ou un fichier
+
+
+    // Route pour supprimer un dossier ou un fichier
     app.delete("/api/drive/:path(*)", async (req, res) => {
         const name = req.params.path.split('/').pop(); // Récupère le dernier segment du chemin, qui est le nom du dossier ou du fichier
-        const fullPath = path.join(tmpDir, subFolderName, req.params.path);
+        const fullPath = path.join(tmpDir, subFolderName, req.params.path); // Chemin complet du fichier ou dossier
 
-        if (!hasValidName(name)) {
+        if (!hasValidName(name)) { // Vérifie si le nom du dossier ou fichier est valide
             console.error('Le nom contient des caractères non-alphanumériques !!!!!!');
             return res.status(400).json({ error: 'Le nom contient des caractères non-alphanumériques !!!!!!' });
         }
 
         try {
-            const fileStats = await fs.stat(fullPath);
+            const fileStats = await fs.stat(fullPath); // Récupère les informations sur le fichier ou dossier
 
             if (fileStats.isFile()) {
-                await fs.unlink(fullPath);
+                await fs.unlink(fullPath); // Supprime le fichier
             } else if (fileStats.isDirectory()) {
-                await fs.rmdir(fullPath, { recursive: true });
+                await fs.rmdir(fullPath, { recursive: true }); // Supprime le dossier et son contenu de manière récursive
             }
 
-            const updatedResponse = await show(path.join(tmpDir, subFolderName));
-            return res.status(200).json(updatedResponse);
+            const updatedResponse = await show(path.join(tmpDir, subFolderName)); // Met à jour la liste des fichiers et dossiers
+            return res.status(200).json(updatedResponse); // Renvoie la réponse mise à jour avec le statut 200 (OK)
         } catch (error) {
-            if (error.code === 'ENOENT') {
+            if (error.code === 'ENOENT') { // Code d'erreur pour "no such file or directory"
                 return res.status(404).json({ error: 'Le fichier ou dossier spécifié n\'existe pas.' });
             }
 
@@ -137,10 +175,67 @@ function start() {
         }
     });
 
-    // Route pour charger un fichier à la racine du drive
-    app.put("/api/drive", async (req, res) => {
-        const fileContent = req.files.file;
-        console.log('FILE', fileContent);
+    // // Route pour charger un fichier à la racine du drive
+    // app.put("/api/drive", async (req, res) => {
+    //     const fileContent = req.files.file; // Contenu du fichier uploadé
+    //     // console.log('FILE', fileContent);
+    //
+    //     // Vérification du contenu du fichier
+    //     if (!fileContent) {
+    //         console.error('Aucun fichier n\'est présent dans la requête !!!!!!');
+    //         return res.status(400).json({ error: 'Aucun fichier n\'est présent dans la requête !!!!!!' });
+    //     }
+    //
+    //     try {
+    //         // Chemin complet pour le nouveau fichier
+    //         const newFilePath = path.join(tmpDir, subFolderName, fileContent.filename);
+    //
+    //         // Écriture du contenu dans le fichier
+    //         await fs.writeFile(newFilePath, fileContent.file, 'utf-8');
+    //
+    //         // Récupération de la liste des fichiers mise à jour
+    //         const updatedResponse = await show(path.join(tmpDir, subFolderName));
+    //         return res.status(201).json(updatedResponse); // Renvoie la réponse mise à jour avec le statut 201 (Created)
+    //     } catch (error) {
+    //         console.error('Erreur lors de la création du fichier :', error);
+    //         res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
+    //     }
+    // });
+    //
+    // // Route pour charger un fichier dans {folder}
+    // app.put("/api/drive/:folder(*)", async (req, res) => {
+    //     const fileContent = req.files.file; // Contenu du fichier uploadé
+    //     const folderPath = req.params.folder; // Chemin du sous-dossier où charger le fichier
+    //
+    //     // Vérification du contenu du fichier
+    //     if (!fileContent) {
+    //         console.error('Aucun fichier n\'est présent dans la requête !!!!!!');
+    //         return res.status(400).json({ error: 'Aucun fichier n\'est présent dans la requête !!!!!!' });
+    //     }
+    //
+    //     try {
+    //         // Chemin complet pour le nouveau fichier
+    //         const newFilePath = path.join(tmpDir, subFolderName, folderPath, fileContent.filename);
+    //
+    //         // Écriture du contenu dans le fichier
+    //         await fs.writeFile(newFilePath, fileContent.file, 'utf-8');
+    //
+    //         // Récupération de la liste des fichiers mise à jour
+    //         const updatedResponse = await show(path.join(tmpDir, subFolderName));
+    //         return res.status(201).json(updatedResponse); // Renvoie la réponse mise à jour avec le statut 201 (Created)
+    //     } catch (error) {
+    //         console.error('Erreur lors de la création du fichier :', error);
+    //         res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
+    //     }
+    // });
+
+
+    // AVANT REFACTO ET IMBRICATION
+    // Route pour charger un fichier dans le drive ou dans un sous-dossier spécifié
+    app.put("/api/drive/:path(*)?", async (req, res) => {
+        const fileContent = req.files.file; // Contenu du fichier uploadé
+        const basePath = path.join(tmpDir, subFolderName); // Chemin de base pour le drive
+        const folderPath = req.params.path || ""; // Chemin du sous-dossier où charger le fichier
 
         // Vérification du contenu du fichier
         if (!fileContent) {
@@ -149,55 +244,29 @@ function start() {
         }
 
         try {
-            // Chemin complet pour le nouveau fichier
-            const newFilePath = path.join(tmpDir, subFolderName, fileContent.filename);
+            // Construit le chemin complet du nouveau fichier
+            const newFilePath = path.join(basePath, folderPath, fileContent.filename);
 
             // Écriture du contenu dans le fichier
             await fs.writeFile(newFilePath, fileContent.file, 'utf-8');
 
             // Récupération de la liste des fichiers mise à jour
             const updatedResponse = await show(path.join(tmpDir, subFolderName));
-            return res.status(201).json(updatedResponse);
+            return res.status(201).json(updatedResponse); // Renvoie la réponse mise à jour avec le statut 201 (Created)
         } catch (error) {
+            if (error.code === 'ENOENT') { // Code d'erreur pour "no such file or directory"
+                return res.status(404).json({ error: 'Le dossier spécifié n\'existe pas.' });
+            }
             console.error('Erreur lors de la création du fichier :', error);
             res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
         }
     });
 
-// Route pour charger un fichier dans {folder}
-    app.put("/api/drive/:folder(*)", async (req, res) => {
-        const fileContent = req.files.file;
-        const folderPath = req.params.folder;
-
-        // Vérification du contenu du fichier
-        if (!fileContent) {
-            console.error('Aucun fichier n\'est présent dans la requête !!!!!!');
-            return res.status(400).json({ error: 'Aucun fichier n\'est présent dans la requête !!!!!!' });
-        }
-
-        try {
-            // Chemin complet pour le nouveau fichier
-            const newFilePath = path.join(tmpDir, subFolderName, folderPath, fileContent.filename);
-
-            // Écriture du contenu dans le fichier
-            await fs.writeFile(newFilePath, fileContent.file, 'utf-8');
-
-            // Récupération de la liste des fichiers mise à jour
-            const updatedResponse = await show(path.join(tmpDir, subFolderName));
-            return res.status(201).json(updatedResponse);
-        } catch (error) {
-            console.error('Erreur lors de la création du fichier :', error);
-            res.status(500).json({ error: 'Une erreur s\'est produite lors de la création du fichier.' });
-        }
-    });
-
-
-
-
-
+    // Démarrage du serveur sur le port spécifié dans la variable d'environnement ALPS_DRIVE_PORT ou sur le port 3000 par défaut
     app.listen(process.env.ALPS_DRIVE_PORT || 3000, () => {
         console.log(`Server is running on port ${process.env.ALPS_DRIVE_PORT || 3000}`);
     });
 }
 
+// Exportation de la fonction start pour être utilisée dans d'autres fichiers
 module.exports = { start };
